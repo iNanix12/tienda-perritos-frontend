@@ -3,14 +3,7 @@
  */
 
 // Determinar la URL base de la API según el host
-const API_BASE = (() => {
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "http://localhost:3001/api/productos";
-  }
-  // Para ejecución en EC2 u otro host, usar el mismo hostname y puerto 3001
-  return `http://${host}:3001/api/productos`;
-})();
+const API_BASE = "http://<TU_IP_PUBLICA_EC2_BACKEND>:3001/api/productos";
 
 let editandoId = null;
 
