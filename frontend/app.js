@@ -3,7 +3,7 @@
  */
 
 // Determinar la URL base de la API según el host
-const API_BASE = "http://<TU_IP_PUBLICA_EC2_BACKEND>:3001/api/productos";
+const API_BASE = "http://52.21.12.191:3001/api/productos";
 
 let editandoId = null;
 
