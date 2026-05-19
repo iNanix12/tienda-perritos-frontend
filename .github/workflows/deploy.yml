@@ -17,12 +17,11 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # Usamos la acción oficial para construir, es más limpia y maneja mejor las rutas
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: .             # <--- SI TU DOCKERFILE ESTÁ DENTRO DE UNA CARPETA FRONTEND, CAMBIA EL . POR ./frontend
-        file: ./Dockerfile     # <--- SI ESTÁ EN UNA CARPETA, CAMBIA A ./frontend/Dockerfile
+        context: ./frontend
+        file: ./frontend/Dockerfile
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/tienda-frontend:latest
 
@@ -30,19 +29,13 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_FRONTEND_HOST }}
-        username: ec2-user     # Asegúrate de usar ec2-user para AWS Academy
+        username: ec2-user     
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 1. Entramos a la carpeta donde está el proyecto en la EC2 pública
           cd /home/ec2-user/tienda-perritos-frontend
-          
-          # 2. Traemos el archivo docker-compose.yml actualizado desde GitHub
           git pull origin deploy
-          
-          # 3. Inyectamos la variable de entorno para que Compose sepa qué imagen descargar
+          cd frontend
           export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-          
-          # 4. Detenimos el contenedor viejo, descargamos el nuevo y lo levantamos
-          docker-compose down || true
-          docker-compose pull
-          docker-compose up -d
+          docker compose down || docker-compose down || true
+          docker compose pull || docker-compose pull
+          docker compose up -d || docker-compose up -d
