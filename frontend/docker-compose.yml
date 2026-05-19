@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  tienda-frontend:
+    image: ${DOCKERHUB_USERNAME}/tienda-frontend:latest
+    container_name: tienda-frontend
+    ports:
+      - "80:80"
+    restart: always
