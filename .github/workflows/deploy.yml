@@ -30,20 +30,19 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_FRONTEND_HOST }}
-        username: ec2-user     # <--- CAMBIADO DE "ubuntu" A "ec2-user" (Estándar en AWS Academy)
+        username: ec2-user     # Asegúrate de usar ec2-user para AWS Academy
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # NOTA: Si usas docker-compose en la EC2 del frontend, descomenta las siguientes líneas
-          # y edita la ruta a la carpeta de tu proyecto en la máquina virtual:
-          # cd /home/ec2-user/tienda-perritos-frontend
-          # git pull origin deploy
-          # export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-          # docker-compose down || true
-          # docker-compose pull
-          # docker-compose up -d
-
-          # SI NO USAS DOCKER-COMPOSE EN EL FRONTEND, DEJA ESTAS LÍNEAS ACTIVAS:
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/tienda-frontend:latest
-          docker stop tienda-frontend || true
-          docker rm tienda-frontend || true
-          docker run -d -p 80:80 --name tienda-frontend ${{ secrets.DOCKERHUB_USERNAME }}/tienda-frontend:latest
+          # 1. Entramos a la carpeta donde está el proyecto en la EC2 pública
+          cd /home/ec2-user/tienda-perritos-frontend
+          
+          # 2. Traemos el archivo docker-compose.yml actualizado desde GitHub
+          git pull origin deploy
+          
+          # 3. Inyectamos la variable de entorno para que Compose sepa qué imagen descargar
+          export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+          
+          # 4. Detenimos el contenedor viejo, descargamos el nuevo y lo levantamos
+          docker-compose down || true
+          docker-compose pull
+          docker-compose up -d
