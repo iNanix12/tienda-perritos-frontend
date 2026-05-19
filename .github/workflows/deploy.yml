@@ -32,19 +32,20 @@ jobs:
         username: ec2-user     
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 1. Entramos a la carpeta que acabamos de crear en la EC2
           cd /home/ec2-user/tienda-perritos-frontend
           
-          # 2. Traemos los cambios de GitHub de manera automática
-          git pull origin deploy
+          # 1. Forzar a git a reiniciarse e igualar a la rama remota (evita el error fatal de ramas divergentes)
+          git fetch origin deploy
+          git reset --hard origin/deploy
           
-          # 3. Entramos a la subcarpeta del frontend
           cd frontend
-          
-          # 4. Inyectamos la variable de Docker Hub
           export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           
-          # 5. Reiniciamos los contenedores con la versión nueva
-          docker compose down || docker-compose down || true
-          docker compose pull || docker-compose pull
-          docker compose up -d || docker-compose up -d
+          # 2. Detener por completo lo que esté usando docker compose
+          docker compose down --remove-orphans || true
+          
+          # 3. Descargar la versión más nueva de la imagen
+          docker compose pull
+          
+          # 4. Levantar el contenedor limpio
+          docker compose up -d
