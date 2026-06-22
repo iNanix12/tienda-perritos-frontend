@@ -1,41 +1,43 @@
-name: Deploy Frontend to EC2
+name: Deploy Frontend to Amazon ECS
 
 on:
   push:
-    branches: [ "deploy" ]
+    branches: [ "main" ] 
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: tienda-perritos-frontend
+  ECS_CLUSTER: cluster-tienda-perritos-v2
+  ECS_SERVICE: srv-tienda-perritos-frontend
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Build, Push and Deploy Frontend
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
 
-    - name: Build and Push Docker Image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./frontend
-        file: ./frontend/Dockerfile
-        push: true
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/tienda-frontend:latest
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Deploy to EC2 via SSH
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_FRONTEND_HOST }}
-        username: ec2-user     
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          cd /home/ec2-user/tienda-perritos-frontend
-          git pull origin deploy
-          cd frontend
-          export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-          docker compose down || docker-compose down || true
-          docker compose pull || docker-compose pull
-          docker compose up -d || docker-compose up -d
+    - name: Build and Push Image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest .
+        docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+
+    - name: Force ECS Deployment
+      run: |
+        aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{ env.ECS_SERVICE }} --force-new-deployment
