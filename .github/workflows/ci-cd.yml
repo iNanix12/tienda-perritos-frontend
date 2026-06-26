@@ -1,1 +1,80 @@
 
+name: CI/CD Frontend
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build y push de la imagen (con BACKEND_URL inyectada)
+        env:
+          REPO_URI: ${{ secrets.ECR_REPOSITORY_URI }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          docker build \
+            --build-arg BACKEND_URL=$BACKEND_URL \
+            -t $REPO_URI:$IMAGE_TAG -t $REPO_URI:latest .
+          docker push $REPO_URI:$IMAGE_TAG
+          docker push $REPO_URI:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en Amazon ECR (para que la EC2 pueda hacer pull)
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Desplegar en EC2 frontend por SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_URI: ${{ secrets.ECR_REPOSITORY_URI }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        with:
+          host: ${{ secrets.EC2_FRONTEND_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          envs: REPO_URI,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN
+          script: |
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(echo $REPO_URI | cut -d'/' -f1)
+            docker pull $REPO_URI:latest
+            docker stop tienda-frontend || true
+            docker rm tienda-frontend || true
+            docker run -d \
+              --name tienda-frontend \
+              --restart unless-stopped \
+              -p 80:80 \
+              $REPO_URI:latest
+            docker image prune -f
