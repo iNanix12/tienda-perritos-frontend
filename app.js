@@ -2,15 +2,10 @@
  * Frontend simple para CRUD de productos de la tienda de perritos.
  */
 
-// Determinar la URL base de la API según el host
-const API_BASE = (() => {
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "http://localhost:3001/api/productos";
-  }
-  // Para ejecución en EC2 u otro host, usar el mismo hostname y puerto 3001
-  return `http://${host}:3001/api/productos`;
-})();
+// La URL base de la API ahora viene de config.js, generado en build time
+// a partir de la variable de entorno BACKEND_URL (ver Dockerfile y CI/CD).
+// En desarrollo local con docker-compose, config.js define localhost:3001.
+const API_BASE = window.APP_CONFIG.BACKEND_URL + "/api/productos";
 
 let editandoId = null;
 
