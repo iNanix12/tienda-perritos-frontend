@@ -8,8 +8,7 @@ env:
   AWS_REGION: us-east-1
   IMAGE_TAG: ${{ github.sha }}
   ECS_CLUSTER: tienda-perritos-cluster
-  ECS_SERVICE: tienda-perritos-frontend-service
-
+  ECS_SERVICE: tienda-perritos-frontend-task-service-pdg5eeup
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
